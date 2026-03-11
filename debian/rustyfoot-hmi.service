@@ -6,6 +6,10 @@ Wants=rustyfoot.service
 [Service]
 Type=simple
 User=modhost
+Environment=HOME=/var/lib/rustyfoot
+Environment=XDG_CONFIG_HOME=/var/lib/rustyfoot/.config
+Environment=XDG_DATA_HOME=/var/lib/rustyfoot/.local/share
+Environment=XDG_CACHE_HOME=/var/cache/rustyfoot
 Environment=MOD_DATA_DIR=/var/lib/rustyfoot
 Environment=MOD_USER_FILES_DIR=/var/lib/rustyfoot/user-files
 ExecStart=/usr/bin/rustyfoot-hmi
