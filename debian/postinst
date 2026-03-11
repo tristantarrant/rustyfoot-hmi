@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+# Ensure the bundled engine library can be found at runtime
+ldconfig
+
+if [ "$1" = "configure" ]; then
+    systemctl daemon-reload
+    systemctl enable rustyfoot-hmi.service
+    systemctl start rustyfoot-hmi.service || true
+fi
