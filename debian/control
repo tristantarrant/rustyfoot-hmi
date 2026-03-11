@@ -1,8 +1,28 @@
-Package: rustyfoot-hmi
-Version: 1.0.0
-Architecture: arm64
+Source: rustyfoot-hmi
+Section: sound
+Priority: optional
 Maintainer: Dataforte <info@dataforte.fi>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+
+Package: rustyfoot-hmi
+Architecture: arm64
+Depends: ${misc:Depends},
+         rustyfoot,
+         libdrm2,
+         libgbm1,
+         libsystemd0,
+         libinput10,
+         libxkbcommon0,
+         libudev1,
+         libegl1,
+         libgles2,
+         libvulkan1,
+         libgstreamer1.0-0,
+         libgstreamer-plugins-base1.0-0,
+         libglib2.0-0,
+         libatomic1,
+         fonts-freefont-ttf
 Description: Rustyfoot HMI for MOD Audio
  Flutter-based touchscreen interface for MOD Audio's mod-ui system,
  designed for Raspberry Pi.
-Depends: rustyfoot, libdrm2, libgbm1, libsystemd0, libinput10, libxkbcommon0, libudev1, libegl1, libgles2, libvulkan1, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0, libglib2.0-0, libatomic1, fonts-freefont-ttf

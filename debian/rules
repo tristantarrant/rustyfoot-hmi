@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	flutterpi_tool build --release --arch=arm64
+
+override_dh_auto_install:
+	# Application bundle
+	mkdir -p debian/rustyfoot-hmi/usr/lib/rustyfoot-hmi
+	cp -a build/flutter-pi/aarch64-generic/. debian/rustyfoot-hmi/usr/lib/rustyfoot-hmi/
+	# Wrapper script
+	install -D -m 755 debian/rustyfoot-hmi.sh debian/rustyfoot-hmi/usr/bin/rustyfoot-hmi
+	# Systemd service
+	install -D -m 644 debian/rustyfoot-hmi.service debian/rustyfoot-hmi/usr/lib/systemd/system/rustyfoot-hmi.service
+	# ld.so config for libflutter_engine.so
+	install -D -m 644 debian/rustyfoot-hmi.conf debian/rustyfoot-hmi/etc/ld.so.conf.d/rustyfoot-hmi.conf
+
+override_dh_auto_test:
+	# Skip tests during build
+
+override_dh_auto_clean:
+	# Intentionally not cleaning build artifacts to allow incremental builds.
+	# Use 'flutterpi_tool build' manually to rebuild.
+
+override_dh_strip:
+	# Skip stripping pre-built arm64 binaries
+
+override_dh_dwz:
+	# Skip dwz on pre-built binaries
+
+override_dh_shlibdeps:
+	# Skip shared library dependency detection for cross-built binaries
+
+override_dh_makeshlibs:
+	# Skip shared library detection for cross-built binaries

@@ -3,3 +3,9 @@ build
 /.dart_tool/
 *.iml
 linux/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/rustyfoot-hmi.substvars
+debian/rustyfoot-hmi.postrm.debhelper
+debian/rustyfoot-hmi/
