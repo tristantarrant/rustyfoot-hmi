@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pi_ede_ui/file_types.dart';
-import 'package:pi_ede_ui/pedal.dart';
+import 'package:rustyfoot_hmi/file_types.dart';
+import 'package:rustyfoot_hmi/pedal.dart';
 
 /// Widget for selecting a file for a file parameter
 class FileParameterWidget extends StatelessWidget {

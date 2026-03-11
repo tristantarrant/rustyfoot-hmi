@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:pi_ede_ui/hmi_server.dart';
-import 'package:pi_ede_ui/pedalboard.dart';
-import 'package:pi_ede_ui/pedal.dart';
-import 'package:pi_ede_ui/pedal_editor.dart';
+import 'package:rustyfoot_hmi/hmi_server.dart';
+import 'package:rustyfoot_hmi/pedalboard.dart';
+import 'package:rustyfoot_hmi/pedal.dart';
+import 'package:rustyfoot_hmi/pedal_editor.dart';
 
 final log = Logger('Pedalboards');
 

@@ -267,7 +267,7 @@ class LV2PluginCache {
 
   String get _defaultCachePath {
     final home = Platform.environment['HOME'] ?? '/tmp';
-    return '$home/.cache/pi-ede-ui/lv2_cache.json';
+    return '$home/.cache/rustyfoot-hmi/lv2_cache.json';
   }
 
   /// Get plugin info by URI (loads on-demand)

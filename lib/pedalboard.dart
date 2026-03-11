@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:rdflib/rdflib.dart';
-import 'package:pi_ede_ui/pedal.dart';
+import 'package:rustyfoot_hmi/pedal.dart';
 
 final _log = Logger('Pedalboard');
 

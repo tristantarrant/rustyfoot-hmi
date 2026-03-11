@@ -1,3 +1,3 @@
-# Pi-EDE UI
+# Rustyfoot HMI
 
-This directory contains the Pi-EDE UI, built using Flutter
+This directory contains the Rustyfoot HMI, built using Flutter

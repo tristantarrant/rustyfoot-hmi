@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:logging/logging.dart';
-import 'package:pi_ede_ui/hmi_protocol.dart';
+import 'package:rustyfoot_hmi/hmi_protocol.dart';
 
 final log = Logger('HMIServer');
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:pi_ede_ui/bank.dart';
+import 'package:rustyfoot_hmi/bank.dart';
 
 final log = Logger('Banks');
 

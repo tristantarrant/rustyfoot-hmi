@@ -1,5 +1,5 @@
-name: pi_ede_ui
-description: "Pi-EDE"
+name: rustyfoot_hmi
+description: "Rustyfoot HMI"
 publish_to: 'none'
 
 version: 1.0.0+1

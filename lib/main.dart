@@ -5,18 +5,18 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:pi_ede_ui/bank.dart';
-import 'package:pi_ede_ui/banks.dart';
-import 'package:pi_ede_ui/bypass.dart';
-import 'package:pi_ede_ui/gpio_client.dart';
-import 'package:pi_ede_ui/hmi_server.dart';
-import 'package:pi_ede_ui/midi_settings.dart';
-import 'package:pi_ede_ui/pedalboards.dart';
-import 'package:pi_ede_ui/profiles.dart';
-import 'package:pi_ede_ui/qr.dart';
-import 'package:pi_ede_ui/snapshots.dart';
-import 'package:pi_ede_ui/transport.dart';
-import 'package:pi_ede_ui/tuner.dart';
+import 'package:rustyfoot_hmi/bank.dart';
+import 'package:rustyfoot_hmi/banks.dart';
+import 'package:rustyfoot_hmi/bypass.dart';
+import 'package:rustyfoot_hmi/gpio_client.dart';
+import 'package:rustyfoot_hmi/hmi_server.dart';
+import 'package:rustyfoot_hmi/midi_settings.dart';
+import 'package:rustyfoot_hmi/pedalboards.dart';
+import 'package:rustyfoot_hmi/profiles.dart';
+import 'package:rustyfoot_hmi/qr.dart';
+import 'package:rustyfoot_hmi/snapshots.dart';
+import 'package:rustyfoot_hmi/transport.dart';
+import 'package:rustyfoot_hmi/tuner.dart';
 
 
 // C header typedef:
@@ -25,7 +25,7 @@ typedef SystemC = ffi.Int32 Function(ffi.Pointer<Utf8> command);
 // Dart header typedef
 typedef SystemDart = int Function(ffi.Pointer<Utf8> command);
 
-const appName = 'Pi-EDE';
+const appName = 'Rustyfoot';
 const accentColor = Colors.orange;
 final log = Logger(appName);
 

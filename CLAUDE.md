@@ -1,4 +1,4 @@
-# Pi-EDE UI
+# Rustyfoot HMI
 
 Flutter-based HMI (Human-Machine Interface) for MOD Audio's mod-ui system, designed for Raspberry Pi.
 
@@ -82,7 +82,7 @@ Outgoing commands:
 - Caches `LV2PluginInfo` with control ports, file parameters, thumbnails, screenshots, etc.
 - `modgui:screenshot` (245-452px) preferred over `modgui:thumbnail` (36-67px) for display
 - File parameters: Parses `patch:writable` declarations with `rdfs:range atom:Path`
-- Cache stored at `~/.cache/pi-ede-ui/lv2_cache.json` - must be cleared when adding new cached fields
+- Cache stored at `~/.cache/rustyfoot-hmi/lv2_cache.json` - must be cleared when adding new cached fields
 
 ### Pedalboard (pedalboard.dart)
 - Parses pedalboard TTL files using rdflib
@@ -169,7 +169,7 @@ ssh pi@tatooine "journalctl -u mod-ui -f"        # Check mod-ui logs
 - Parameter changes via `cps` are volatile (mark pedalboard modified but don't auto-save)
 - Tuner auto-disables on widget dispose
 - Some HMI features are firmware-level only (noise gate, compressor, system info)
-- Clear plugin cache after updating: `ssh pi@tatooine "rm -f ~/.cache/pi-ede-ui/lv2_cache.json"`
-- mod-ui auto-reconnects to pi-ede-ui when the TCP connection drops (via `set_close_callback` in `TcpHMI`)
+- Clear plugin cache after updating: `ssh pi@tatooine "rm -f ~/.cache/rustyfoot-hmi/lv2_cache.json"`
+- mod-ui auto-reconnects to rustyfoot-hmi when the TCP connection drops (via `set_close_callback` in `TcpHMI`)
 - Handled HMI commands: `pb`, `pbl`, `pcl`, `is`, `boot`, `sn`, `r`, `mi`, `ts`, `pr`, `fn`, `tu`, `cps`, `fps`
 - Tuner display uses `FittedBox(fit: BoxFit.scaleDown)` to prevent overflow on 480px height

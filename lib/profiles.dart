@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:pi_ede_ui/hmi_server.dart';
+import 'package:rustyfoot_hmi/hmi_server.dart';
 
 final _log = Logger('Profiles');
 
