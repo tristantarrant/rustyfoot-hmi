@@ -191,6 +191,10 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         ?? '${Platform.environment['HOME']}/.pedalboards';
     Directory dir = Directory(pedalboardsDir);
     log.info("Loading pedalboards $dir");
+    if (!dir.existsSync()) {
+      log.warning("Pedalboards directory does not exist: $pedalboardsDir");
+      return pedalboards;
+    }
     var pDirs = dir.listSync(recursive: false).toList();
     // Sort by path to match mod-ui's Lilv enumeration order
     pDirs.sort((a, b) => a.path.compareTo(b.path));
