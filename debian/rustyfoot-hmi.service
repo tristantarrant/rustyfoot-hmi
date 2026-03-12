@@ -12,6 +12,7 @@ Environment=XDG_DATA_HOME=/var/lib/rustyfoot/.local/share
 Environment=XDG_CACHE_HOME=/var/cache/rustyfoot
 Environment=MOD_DATA_DIR=/var/lib/rustyfoot
 Environment=MOD_USER_FILES_DIR=/var/lib/rustyfoot/user-files
+Environment=MOD_USER_PEDALBOARDS_DIR=/var/lib/rustyfoot/pedalboards
 ExecStart=/usr/bin/rustyfoot-hmi
 Restart=on-failure
 RestartSec=3

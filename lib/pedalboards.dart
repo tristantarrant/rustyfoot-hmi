@@ -187,8 +187,9 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
 
   Future load() async {
     pedalboards.clear();
-    var home = Platform.environment['HOME'];
-    Directory dir = Directory("$home/.pedalboards");
+    var pedalboardsDir = Platform.environment['MOD_USER_PEDALBOARDS_DIR']
+        ?? '${Platform.environment['HOME']}/.pedalboards';
+    Directory dir = Directory(pedalboardsDir);
     log.info("Loading pedalboards $dir");
     var pDirs = dir.listSync(recursive: false).toList();
     // Sort by path to match mod-ui's Lilv enumeration order
