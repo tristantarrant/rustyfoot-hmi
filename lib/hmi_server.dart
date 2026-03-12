@@ -89,12 +89,16 @@ class HMIServer {
   final _profilesController = StreamController<ProfilesEvent>.broadcast();
   final _fileParamController = StreamController<FileParamEvent>.broadcast();
   final _pedalboardClearController = StreamController<void>.broadcast();
+  final _pedalboardReloadController = StreamController<void>.broadcast();
 
   /// Stream of pedalboard change events
   Stream<PedalboardChangeEvent> get onPedalboardChange => _pedalboardChangeController.stream;
 
   /// Stream of pedalboard load events
   Stream<PedalboardLoadEvent> get onPedalboardLoad => _pedalboardLoadController.stream;
+
+  /// Stream of pedalboard list reload events
+  Stream<void> get onPedalboardReload => _pedalboardReloadController.stream;
 
   /// Stream of tuner events
   Stream<TunerEvent> get onTuner => _tunerController.stream;
@@ -207,6 +211,12 @@ class HMIServer {
 
       case HMIProtocol.CMD_PEDALBOARD_CHANGE:
         _handlePedalboardChange(client, args);
+        break;
+
+      case HMIProtocol.CMD_PEDALBOARD_RELOAD_LIST:
+        log.info("Pedalboard list reload requested");
+        _pedalboardReloadController.add(null);
+        _sendResponse(client, 0);
         break;
 
       case HMIProtocol.CMD_PEDALBOARD_LOAD:

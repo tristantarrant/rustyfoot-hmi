@@ -31,6 +31,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   StreamSubscription<PedalboardLoadEvent>? _loadSubscription;
   StreamSubscription<FileParamEvent>? _fileParamSubscription;
   StreamSubscription<void>? _clearSubscription;
+  StreamSubscription<void>? _reloadSubscription;
   PageController? _pageController;
 
   // Store file param values received from HMI (instance -> paramUri -> path)
@@ -95,6 +96,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         _selectedPedal = null;
       });
       _fileParamValues.clear();
+    });
+
+    _reloadSubscription = hmi.onPedalboardReload.listen((_) {
+      log.info("HMI pedalboard list reload");
+      load();
     });
 
     _fileParamSubscription = hmi.onFileParam.listen((event) {
@@ -181,6 +187,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     _loadSubscription?.cancel();
     _fileParamSubscription?.cancel();
     _clearSubscription?.cancel();
+    _reloadSubscription?.cancel();
     _pageController?.dispose();
     super.dispose();
   }

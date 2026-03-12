@@ -31,6 +31,7 @@ class HMIProtocol {
   static const String CMD_PEDALBOARD_SAVE_AS = "psa";
   static const String CMD_PEDALBOARD_CLEAR = "pcl";
   static const String CMD_PEDALBOARD_DELETE = "pbd";
+  static const String CMD_PEDALBOARD_RELOAD_LIST = "prl";
   static const String CMD_REORDER_SSS_IN_PB = "sr";
   static const String CMD_SNAPSHOTS = "ssg";
   static const String CMD_SNAPSHOT_NAME_SET = "sn";
