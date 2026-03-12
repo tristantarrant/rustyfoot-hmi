@@ -199,7 +199,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     // Sort by path to match mod-ui's Lilv enumeration order
     pDirs.sort((a, b) => a.path.compareTo(b.path));
     for (var pDir in pDirs) {
-      pedalboards.add(Pedalboard.load(pDir));
+      final pb = Pedalboard.load(pDir);
+      if (pb != null) pedalboards.add(pb);
     }
     final initialPage = widget.activePedalboardIndex.clamp(0, pedalboards.length - 1);
     _pageController?.dispose();

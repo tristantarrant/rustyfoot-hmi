@@ -14,16 +14,29 @@ class Pedalboard {
 
   Pedalboard(this.name, this.path, this._ttlFileName);
 
-  factory Pedalboard.load(FileSystemEntity f) {
-    Graph g = Graph();
-    g.parseTurtle(File("${f.path}/manifest.ttl").readAsStringSync());
-    var triples = g.matchTriples("http://www.w3.org/2000/01/rdf-schema#seeAlso");
-    var uri = triples.first.obj as URIRef;
-    g = Graph();
-    g.parseTurtle(File("${f.path}/${uri.value}").readAsStringSync());
-    triples = g.matchTriples("http://usefulinc.com/ns/doap#name");
-    var name = triples.first.obj as Literal;
-    return Pedalboard(name.value, f.path, uri.value);
+  static Pedalboard? load(FileSystemEntity f) {
+    try {
+      Graph g = Graph();
+      g.parseTurtle(File("${f.path}/manifest.ttl").readAsStringSync());
+      var triples = g.matchTriples("http://www.w3.org/2000/01/rdf-schema#seeAlso");
+      if (triples.isEmpty) {
+        _log.warning('No seeAlso triple in ${f.path}/manifest.ttl');
+        return null;
+      }
+      var uri = triples.first.obj as URIRef;
+      g = Graph();
+      g.parseTurtle(File("${f.path}/${uri.value}").readAsStringSync());
+      triples = g.matchTriples("http://usefulinc.com/ns/doap#name");
+      if (triples.isEmpty) {
+        _log.warning('No doap:name triple in ${f.path}/${uri.value}');
+        return null;
+      }
+      var name = triples.first.obj as Literal;
+      return Pedalboard(name.value, f.path, uri.value);
+    } catch (e) {
+      _log.warning('Failed to load pedalboard from ${f.path}: $e');
+      return null;
+    }
   }
 
   /// Load and return the list of pedals in this pedalboard
