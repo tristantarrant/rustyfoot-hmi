@@ -197,7 +197,6 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   }
 
   Future load() async {
-    pedalboards.clear();
     var pedalboardsDir = Platform.environment['MOD_USER_PEDALBOARDS_DIR']
         ?? '${Platform.environment['HOME']}/.pedalboards';
     Directory dir = Directory(pedalboardsDir);
@@ -214,6 +213,9 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       final pb = Pedalboard.load(pDir);
       if (pb != null) allPedalboards[pb.path] = pb;
     }
+
+    // Build the new list without modifying state yet
+    final newPedalboards = <Pedalboard>[];
 
     if (widget.bankId > 1) {
       // User bank selected: show only its pedalboards in bank order
@@ -232,7 +234,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
                 }
               }).firstOrNull;
           if (pb != null) {
-            pedalboards.add(pb);
+            newPedalboards.add(pb);
           } else {
             log.warning("Bank pedalboard not found on disk: $bundle");
           }
@@ -242,15 +244,17 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       // "All Pedalboards": show all, sorted alphabetically by path
       final sorted = allPedalboards.values.toList();
       sorted.sort((a, b) => a.path.compareTo(b.path));
-      pedalboards.addAll(sorted);
+      newPedalboards.addAll(sorted);
     }
 
-    final initialPage = pedalboards.isEmpty
+    // Update state atomically
+    final initialPage = newPedalboards.isEmpty
         ? 0
-        : widget.activePedalboardIndex.clamp(0, pedalboards.length - 1);
+        : widget.activePedalboardIndex.clamp(0, newPedalboards.length - 1);
     _pageController?.dispose();
     _pageController = PageController(initialPage: initialPage);
     setState(() {
+      pedalboards = newPedalboards;
       activePedalboard = initialPage;
       _editMode = false;
       _pedals = null;
