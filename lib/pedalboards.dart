@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:rustyfoot_hmi/bank.dart';
 import 'package:rustyfoot_hmi/hmi_server.dart';
 import 'package:rustyfoot_hmi/pedalboard.dart';
 import 'package:rustyfoot_hmi/pedal.dart';
@@ -164,7 +165,10 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   @override
   void didUpdateWidget(PedalboardsWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.activePedalboardIndex != oldWidget.activePedalboardIndex) {
+    if (widget.bankId != oldWidget.bankId) {
+      // Bank changed: reload pedalboard list in new bank order
+      load();
+    } else if (widget.activePedalboardIndex != oldWidget.activePedalboardIndex) {
       final targetIndex = widget.activePedalboardIndex;
       if (targetIndex >= 0 && targetIndex < pedalboards.length && targetIndex != activePedalboard) {
         setState(() {
@@ -197,23 +201,60 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     var pedalboardsDir = Platform.environment['MOD_USER_PEDALBOARDS_DIR']
         ?? '${Platform.environment['HOME']}/.pedalboards';
     Directory dir = Directory(pedalboardsDir);
-    log.info("Loading pedalboards $dir");
+    log.info("Loading pedalboards from $dir for bank ${widget.bankId}");
     if (!dir.existsSync()) {
       log.warning("Pedalboards directory does not exist: $pedalboardsDir");
       return pedalboards;
     }
+
+    // Load all pedalboards from disk into a map keyed by path
     var pDirs = dir.listSync(recursive: false).toList();
-    // Sort by path to match mod-ui's Lilv enumeration order
-    pDirs.sort((a, b) => a.path.compareTo(b.path));
+    final allPedalboards = <String, Pedalboard>{};
     for (var pDir in pDirs) {
       final pb = Pedalboard.load(pDir);
-      if (pb != null) pedalboards.add(pb);
+      if (pb != null) allPedalboards[pb.path] = pb;
     }
-    final initialPage = widget.activePedalboardIndex.clamp(0, pedalboards.length - 1);
+
+    if (widget.bankId > 1) {
+      // User bank selected: show only its pedalboards in bank order
+      final banks = await Bank.loadAll();
+      final bank = banks.where((b) => b.id == widget.bankId).firstOrNull;
+      if (bank != null) {
+        for (final bundle in bank.pedalboardBundles) {
+          // Try exact match first, then try resolving symlinks
+          final pb = allPedalboards[bundle] ??
+              allPedalboards.values.where((p) {
+                try {
+                  return Directory(p.path).resolveSymbolicLinksSync() ==
+                      Directory(bundle).resolveSymbolicLinksSync();
+                } catch (_) {
+                  return false;
+                }
+              }).firstOrNull;
+          if (pb != null) {
+            pedalboards.add(pb);
+          } else {
+            log.warning("Bank pedalboard not found on disk: $bundle");
+          }
+        }
+      }
+    } else {
+      // "All Pedalboards": show all, sorted alphabetically by path
+      final sorted = allPedalboards.values.toList();
+      sorted.sort((a, b) => a.path.compareTo(b.path));
+      pedalboards.addAll(sorted);
+    }
+
+    final initialPage = pedalboards.isEmpty
+        ? 0
+        : widget.activePedalboardIndex.clamp(0, pedalboards.length - 1);
     _pageController?.dispose();
     _pageController = PageController(initialPage: initialPage);
     setState(() {
       activePedalboard = initialPage;
+      _editMode = false;
+      _pedals = null;
+      _selectedPedal = null;
     });
     return pedalboards;
   }
