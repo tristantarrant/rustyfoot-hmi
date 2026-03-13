@@ -247,11 +247,12 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       newPedalboards.addAll(sorted);
     }
 
-    // Update state atomically
+    // Update state atomically — dispose old controller after the frame
+    // to avoid disposing it while the PageView still references it
     final initialPage = newPedalboards.isEmpty
         ? 0
         : widget.activePedalboardIndex.clamp(0, newPedalboards.length - 1);
-    _pageController?.dispose();
+    final oldController = _pageController;
     _pageController = PageController(initialPage: initialPage);
     setState(() {
       pedalboards = newPedalboards;
@@ -259,6 +260,9 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       _editMode = false;
       _pedals = null;
       _selectedPedal = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      oldController?.dispose();
     });
     return pedalboards;
   }
