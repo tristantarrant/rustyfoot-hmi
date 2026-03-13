@@ -149,7 +149,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
       _title = 'Pedalboards';
     });
     hmiServer.setCurrentBank(_currentBankId);
-    Navigator.pop(context); // Close drawer
   }
 
   void _onPedalboard() {
