@@ -220,6 +220,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     if (widget.bankId > 1) {
       // User bank selected: show only its pedalboards in bank order
       final banks = await Bank.loadAll();
+      if (!mounted) return pedalboards;
       final bank = banks.where((b) => b.id == widget.bankId).firstOrNull;
       if (bank != null) {
         for (final bundle in bank.pedalboardBundles) {
@@ -246,6 +247,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       sorted.sort((a, b) => a.path.compareTo(b.path));
       newPedalboards.addAll(sorted);
     }
+
+    if (!mounted) return pedalboards;
 
     // Update state atomically — dispose old controller after the frame
     // to avoid disposing it while the PageView still references it

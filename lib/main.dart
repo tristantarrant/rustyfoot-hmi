@@ -14,6 +14,7 @@ import 'package:rustyfoot_hmi/midi_settings.dart';
 import 'package:rustyfoot_hmi/pedalboards.dart';
 import 'package:rustyfoot_hmi/profiles.dart';
 import 'package:rustyfoot_hmi/qr.dart';
+import 'package:rustyfoot_hmi/version.dart';
 import 'package:rustyfoot_hmi/snapshots.dart';
 import 'package:rustyfoot_hmi/transport.dart';
 import 'package:rustyfoot_hmi/tuner.dart';
@@ -145,6 +146,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
     setState(() {
       _currentBankId = bank.id;
       _currentBankName = bank.title;
+      _activePedalboardIndex = 0;
       _selectedWidget = 0; // Switch back to pedalboards view
       _title = 'Pedalboards';
     });
@@ -300,7 +302,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
             padding: const EdgeInsets.only(right: 8.0),
             child: Center(
               child: Text(
-                _currentBankName,
+                '$_currentBankName  [$gitCommit]',
                 style: const TextStyle(fontSize: 12),
               ),
             ),
