@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:ffi' as ffi;
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -119,7 +121,72 @@ class _PiEdeUIState extends State<PiEdeUI> {
   @override
   void initState() {
     super.initState();
+    _loadLastState();
     _subscribeToHmiEvents();
+  }
+
+  /// Load last bank and pedalboard from last.json
+  Future<void> _loadLastState() async {
+    final dataDir = Platform.environment['MOD_DATA_DIR'] ??
+        '${Platform.environment['HOME']}/data';
+    final lastFile = File('$dataDir/last.json');
+
+    if (!await lastFile.exists()) {
+      log.info('No last.json found');
+      return;
+    }
+
+    try {
+      final content = await lastFile.readAsString();
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      final lastBank = json['bank'] as int? ?? -1;
+      final lastPedalboard = json['pedalboard'] as String? ?? '';
+
+      // Convert from last.json format (bank_id - 2) back to HMI bank ID
+      final bankId = lastBank + 2;
+
+      // Load banks to get the bank name and find pedalboard index
+      final banks = await Bank.loadAll();
+      if (!mounted) return;
+
+      final bank = banks.where((b) => b.id == bankId).firstOrNull;
+      final bankName = bank?.title ?? 'All Pedalboards';
+
+      // Find pedalboard index within the bank
+      int pedalboardIndex = 0;
+      if (lastPedalboard.isNotEmpty && bank != null) {
+        if (bankId > 1) {
+          // User bank: find by bundle path
+          final idx = bank.pedalboardBundles.indexOf(lastPedalboard);
+          if (idx >= 0) pedalboardIndex = idx;
+        } else {
+          // "All Pedalboards": find by path in sorted pedalboard list
+          final pedalboardsDir = Platform.environment['MOD_USER_PEDALBOARDS_DIR'] ??
+              '${Platform.environment['HOME']}/.pedalboards';
+          final dir = Directory(pedalboardsDir);
+          if (dir.existsSync()) {
+            final paths = dir.listSync(recursive: false)
+                .map((e) => e.path)
+                .where((p) => p.endsWith('.pedalboard'))
+                .toList()
+              ..sort();
+            final idx = paths.indexOf(lastPedalboard);
+            if (idx >= 0) pedalboardIndex = idx;
+          }
+        }
+      }
+
+      log.info('Restored last state: bank=$bankId ($bankName), pedalboard=$pedalboardIndex ($lastPedalboard)');
+
+      setState(() {
+        _currentBankId = bankId;
+        _currentBankName = bankName;
+        _activePedalboardIndex = pedalboardIndex;
+      });
+      hmiServer.setCurrentBank(bankId);
+    } catch (e) {
+      log.warning('Failed to load last state: $e');
+    }
   }
 
   void _subscribeToHmiEvents() {
