@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:ffi' as ffi;
 import 'dart:io';
 
-import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
@@ -21,12 +19,6 @@ import 'package:rustyfoot_hmi/snapshots.dart';
 import 'package:rustyfoot_hmi/transport.dart';
 import 'package:rustyfoot_hmi/tuner.dart';
 
-
-// C header typedef:
-typedef SystemC = ffi.Int32 Function(ffi.Pointer<Utf8> command);
-
-// Dart header typedef
-typedef SystemDart = int Function(ffi.Pointer<Utf8> command);
 
 const appName = 'Rustyfoot';
 const accentColor = Colors.orange;
@@ -288,20 +280,27 @@ class _PiEdeUIState extends State<PiEdeUI> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Shutdown'),
-          content: const Text('Shut down the device?'),
+          title: const Text('Power'),
+          content: const Text('Shut down or restart the device?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Dismiss dialog
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Restart'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _runPowerCommand('reboot');
               },
             ),
             TextButton(
               child: const Text('Shutdown'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Dismiss dialog
-                _shutDownDevice(); // Proceed to shut down
+                Navigator.of(dialogContext).pop();
+                _runPowerCommand('shutdown');
               },
             ),
           ],
@@ -310,13 +309,14 @@ class _PiEdeUIState extends State<PiEdeUI> {
     );
   }
 
-  Future<void> _shutDownDevice() async {
-    log.info("shutdown");
-    var libc = ffi.DynamicLibrary.open('libc.so.6');
-    final systemP = libc.lookupFunction<SystemC, SystemDart>('system');
-    final cmdP = 'sudo shutdown now'.toNativeUtf8();
-    systemP(cmdP);
-    calloc.free(cmdP);
+  Future<void> _runPowerCommand(String action) async {
+    log.info(action);
+    final args = action == 'reboot' ? ['reboot'] : ['shutdown', 'now'];
+    try {
+      await Process.run('sudo', args);
+    } catch (e) {
+      log.warning('Failed to $action: $e');
+    }
   }
 
   Widget _buildBody() {
@@ -466,8 +466,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.power_off),
-              title: const Text('Shutdown'),
+              leading: const Icon(Icons.power_settings_new),
+              title: const Text('Power'),
               onTap: () {
                 Navigator.pop(context);
                 _onPowerOff(context);
