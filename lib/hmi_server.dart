@@ -6,6 +6,12 @@ import 'package:rustyfoot_hmi/hmi_protocol.dart';
 
 final log = Logger('HMIServer');
 
+/// Event emitted when a bank change command is received
+class BankChangeEvent {
+  final int bankId;
+  BankChangeEvent(this.bankId);
+}
+
 /// Event emitted when a pedalboard change command is received
 class PedalboardChangeEvent {
   final int index;
@@ -81,6 +87,7 @@ class HMIServer {
   int _currentBankId = 1;
 
   // Stream controllers for events
+  final _bankChangeController = StreamController<BankChangeEvent>.broadcast();
   final _pedalboardChangeController = StreamController<PedalboardChangeEvent>.broadcast();
   final _pedalboardLoadController = StreamController<PedalboardLoadEvent>.broadcast();
   final _tunerController = StreamController<TunerEvent>.broadcast();
@@ -90,6 +97,9 @@ class HMIServer {
   final _fileParamController = StreamController<FileParamEvent>.broadcast();
   final _pedalboardClearController = StreamController<void>.broadcast();
   final _pedalboardReloadController = StreamController<void>.broadcast();
+
+  /// Stream of bank change events
+  Stream<BankChangeEvent> get onBankChange => _bankChangeController.stream;
 
   /// Stream of pedalboard change events
   Stream<PedalboardChangeEvent> get onPedalboardChange => _pedalboardChangeController.stream;
@@ -209,6 +219,10 @@ class HMIServer {
         _sendResponse(client, 0);
         break;
 
+      case HMIProtocol.CMD_BANK_CHANGE:
+        _handleBankChange(client, args);
+        break;
+
       case HMIProtocol.CMD_PEDALBOARD_CHANGE:
         _handlePedalboardChange(client, args);
         break;
@@ -270,6 +284,26 @@ class HMIServer {
         log.warning("Unknown command: $command");
         _sendResponse(client, -1);
     }
+  }
+
+  void _handleBankChange(Socket client, List<String> args) {
+    if (args.isEmpty) {
+      log.warning("Bank change: missing bank ID argument");
+      _sendResponse(client, -1);
+      return;
+    }
+
+    final bankId = int.tryParse(args[0]);
+    if (bankId == null) {
+      log.warning("Bank change: invalid bank ID '${args[0]}'");
+      _sendResponse(client, -1);
+      return;
+    }
+
+    log.info("Bank change to: $bankId");
+    _currentBankId = bankId;
+    _bankChangeController.add(BankChangeEvent(bankId));
+    _sendResponse(client, 0);
   }
 
   void _handlePedalboardChange(Socket client, List<String> args) {

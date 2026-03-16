@@ -182,6 +182,11 @@ class _PiEdeUIState extends State<PiEdeUI> {
   }
 
   void _subscribeToHmiEvents() {
+    hmiServer.onBankChange.listen((event) {
+      log.info("Main: bank change event: bankId=${event.bankId}");
+      _applyBankChange(event.bankId);
+    });
+
     hmiServer.onPedalboardChange.listen((event) {
       log.info("Main: pedalboard change event: index=${event.index}");
       setState(() {
@@ -198,6 +203,18 @@ class _PiEdeUIState extends State<PiEdeUI> {
         _selectedWidget = 0;
         _title = 'Pedalboards';
       });
+    });
+  }
+
+  Future<void> _applyBankChange(int bankId) async {
+    final banks = await Bank.loadAll();
+    if (!mounted) return;
+    final bank = banks.where((b) => b.id == bankId).firstOrNull;
+    final bankName = bank?.title ?? 'All Pedalboards';
+    setState(() {
+      _currentBankId = bankId;
+      _currentBankName = bankName;
+      _activePedalboardIndex = 0;
     });
   }
 

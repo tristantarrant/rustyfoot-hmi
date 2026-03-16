@@ -17,6 +17,7 @@ class HMIProtocol {
   static const String CMD_FILE_PARAM_CURRENT = "fpc";
   static const String CMD_CONTROL_PAGE = "ncp";
   static const String CMD_INITIAL_STATE = "is";
+  static const String CMD_BANK_CHANGE = "bchng";
   static const String CMD_BANKS = "b";
   static const String CMD_BANK_NEW = "bn";
   static const String CMD_BANK_DELETE = "bd";
