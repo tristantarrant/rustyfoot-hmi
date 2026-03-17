@@ -1,6 +1,6 @@
 [Unit]
 Description=Rustyfoot HMI
-After=network.target rustyfoot.service
+After=rustyfoot.service
 Wants=rustyfoot.service
 
 [Service]
