@@ -307,6 +307,13 @@ class _PiEdeUIState extends State<PiEdeUI> {
               },
             ),
             TextButton(
+              child: const Text('Exit to Shell'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _exitToShell();
+              },
+            ),
+            TextButton(
               child: const Text('Restart'),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
@@ -324,6 +331,15 @@ class _PiEdeUIState extends State<PiEdeUI> {
         );
       },
     );
+  }
+
+  Future<void> _exitToShell() async {
+    log.info('Exiting to shell');
+    try {
+      await Process.run('sudo', ['systemctl', 'stop', 'rustyfoot-hmi.service']);
+    } catch (e) {
+      log.warning('Failed to exit to shell: $e');
+    }
   }
 
   Future<void> _runPowerCommand(String action) async {
