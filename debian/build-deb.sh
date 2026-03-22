@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build/flutter-pi/aarch64-generic"
-VERSION=$(grep '^Version:' "$SCRIPT_DIR/control" | awk '{print $2}')
+VERSION=$(head -1 "$SCRIPT_DIR/changelog" | grep -oP '\(([^)]+)\)' | tr -d '()')
 PKG_NAME="rustyfoot-hmi_${VERSION}_arm64"
 STAGE_DIR="$PROJECT_DIR/build/$PKG_NAME"
 
@@ -20,7 +20,14 @@ rm -rf "$STAGE_DIR"
 
 # Control files
 mkdir -p "$STAGE_DIR/DEBIAN"
-cp "$SCRIPT_DIR/control" "$STAGE_DIR/DEBIAN/control"
+MAINTAINER=$(grep '^Maintainer:' "$SCRIPT_DIR/control" | head -1)
+sed -n '/^Package:/,$ p' "$SCRIPT_DIR/control" \
+  | grep -v 'misc:Depends' \
+  | sed '/^Depends:/{N;s/Depends:\s*\n\s*/Depends: /}' \
+  > "$STAGE_DIR/DEBIAN/control"
+# Add required fields
+sed -i "/^Architecture:/a Version: $VERSION" "$STAGE_DIR/DEBIAN/control"
+grep -q '^Maintainer:' "$STAGE_DIR/DEBIAN/control" || sed -i "/^Version:/a $MAINTAINER" "$STAGE_DIR/DEBIAN/control"
 cp "$SCRIPT_DIR/postinst" "$STAGE_DIR/DEBIAN/postinst"
 cp "$SCRIPT_DIR/prerm" "$STAGE_DIR/DEBIAN/prerm"
 cp "$SCRIPT_DIR/postrm" "$STAGE_DIR/DEBIAN/postrm"
