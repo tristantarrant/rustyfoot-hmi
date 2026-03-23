@@ -10,9 +10,11 @@ class Pedalboard {
   final String name;
   final String path;
   final String _ttlFileName;
+  final double bpm;
+  final int bpb;
   List<Pedal>? _pedals;
 
-  Pedalboard(this.name, this.path, this._ttlFileName);
+  Pedalboard(this.name, this.path, this._ttlFileName, {this.bpm = 120.0, this.bpb = 4});
 
   static Pedalboard? load(FileSystemEntity f) {
     try {
@@ -32,7 +34,29 @@ class Pedalboard {
         return null;
       }
       var name = triples.first.obj as Literal;
-      return Pedalboard(name.value, f.path, uri.value);
+
+      // Parse transport values (bpm, bpb) from the pedalboard TTL
+      double bpm = 120.0;
+      int bpb = 4;
+      try {
+        final pbGraph = Graph();
+        pbGraph.parseTurtle(File("${f.path}/${uri.value}").readAsStringSync());
+        final ingenValue = 'http://drobilla.net/ns/ingen#value';
+        for (final t in pbGraph.triples) {
+          if (t.pre.value == ingenValue && t.obj is Literal) {
+            final val = (t.obj as Literal).value;
+            if (t.sub.value.endsWith(':bpm') || t.sub.value.endsWith('/bpm')) {
+              bpm = double.tryParse(val) ?? bpm;
+            } else if (t.sub.value.endsWith(':bpb') || t.sub.value.endsWith('/bpb')) {
+              bpb = (double.tryParse(val) ?? bpb.toDouble()).toInt();
+            }
+          }
+        }
+      } catch (e) {
+        _log.fine('Could not parse transport from ${f.path}/${uri.value}: $e');
+      }
+
+      return Pedalboard(name.value, f.path, uri.value, bpm: bpm, bpb: bpb);
     } catch (e) {
       _log.warning('Failed to load pedalboard from ${f.path}: $e');
       return null;
