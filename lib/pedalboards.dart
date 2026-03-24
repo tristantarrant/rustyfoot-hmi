@@ -109,11 +109,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           _pedals = null;
           _selectedPedal = null;
         });
-        _pageController?.animateToPage(
-          targetIndex,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        _pageController?.jumpToPage(targetIndex);
       }
     });
 
@@ -272,11 +268,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           _pedals = null;
           _selectedPedal = null;
         });
-        _pageController?.animateToPage(
-          targetIndex,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        _pageController?.jumpToPage(targetIndex);
       }
     }
   }
