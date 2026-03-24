@@ -12,12 +12,19 @@ import 'package:rustyfoot_hmi/pedal_editor.dart';
 
 final log = Logger('Pedalboards');
 
+typedef PedalboardInfoCallback = void Function(String name, double bpm, int bpb);
+typedef TransportChangeCallback = void Function(double bpm, int bpb);
+
 class PedalboardsWidget extends StatefulWidget {
   final HMIServer? hmiServer;
   final int bankId;
   final int activePedalboardIndex;
+  final PedalboardInfoCallback? onPedalboardInfo;
+  final TransportChangeCallback? onTransportChanged;
+  final double? liveBpm;
+  final int? liveBpb;
 
-  const PedalboardsWidget({super.key, this.hmiServer, this.bankId = 1, this.activePedalboardIndex = 0});
+  const PedalboardsWidget({super.key, this.hmiServer, this.bankId = 1, this.activePedalboardIndex = 0, this.onPedalboardInfo, this.onTransportChanged, this.liveBpm, this.liveBpb});
 
   @override
   State<PedalboardsWidget> createState() => _PedalboardsWidgetState();
@@ -44,6 +51,16 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   Timer? _beatTimer;
   int _currentBeat = 0;
 
+  // Transport editor
+  bool _transportEditorVisible = false;
+  double _savedBpm = 120.0;
+  int _savedBpb = 4;
+  int? _lastTap;
+  final List<double> _tapTempos = [];
+  final ScrollController _bpbScrollController = ScrollController();
+
+  bool get _transportModified => _bpm != _savedBpm || _bpb != _savedBpb;
+
   // Store file param values received from HMI (instance -> paramUri -> path)
   final Map<String, Map<String, String>> _fileParamValues = {};
 
@@ -65,6 +82,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   @override
   void initState() {
     super.initState();
+    if (widget.liveBpm != null) _bpm = widget.liveBpm!;
+    if (widget.liveBpb != null) _bpb = widget.liveBpb!;
     load();
     _subscribeToHmiEvents();
   }
@@ -225,12 +244,22 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       final pb = pedalboards[index];
       _bpm = pb.bpm;
       _bpb = pb.bpb;
+      _savedBpm = pb.bpm;
+      _savedBpb = pb.bpb;
+      widget.onPedalboardInfo?.call(pb.name, pb.bpm, pb.bpb);
     }
   }
 
   @override
   void didUpdateWidget(PedalboardsWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Sync live transport values from parent
+    if (widget.liveBpm != null && widget.liveBpm != _bpm) {
+      _bpm = widget.liveBpm!;
+    }
+    if (widget.liveBpb != null && widget.liveBpb != _bpb) {
+      _bpb = widget.liveBpb!;
+    }
     if (widget.bankId != oldWidget.bankId) {
       // Bank changed: reload pedalboard list in new bank order
       load();
@@ -260,6 +289,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     _reloadSubscription?.cancel();
     _transportSubscription?.cancel();
     _stopBeatTimer();
+    _bpbScrollController.dispose();
     _pageController?.dispose();
     super.dispose();
   }
@@ -326,8 +356,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     final oldController = _pageController;
     _pageController = PageController(initialPage: initialPage);
     if (initialPage >= 0 && initialPage < newPedalboards.length) {
-      _bpm = newPedalboards[initialPage].bpm;
-      _bpb = newPedalboards[initialPage].bpb;
+      final pb = newPedalboards[initialPage];
+      // Only use TTL values if no live values were provided
+      if (widget.liveBpm == null) _bpm = pb.bpm;
+      if (widget.liveBpb == null) _bpb = pb.bpb;
+      widget.onPedalboardInfo?.call(pb.name, _bpm, _bpb);
     }
     setState(() {
       pedalboards = newPedalboards;
@@ -379,6 +412,87 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         });
       }
     }
+  }
+
+  void _toggleTransportEditor() {
+    setState(() {
+      _transportEditorVisible = !_transportEditorVisible;
+    });
+    if (_transportEditorVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBpb());
+    }
+  }
+
+  void _scrollToBpb() {
+    if (!_bpbScrollController.hasClients) return;
+    const segmentWidth = 40.0;
+    final targetOffset = (_bpb - 1) * segmentWidth -
+        (_bpbScrollController.position.viewportDimension / 2) +
+        (segmentWidth / 2);
+    _bpbScrollController.animateTo(
+      targetOffset.clamp(0.0, _bpbScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _setTempo(double value) {
+    setState(() { _bpm = value; });
+  }
+
+  void _commitTempo() {
+    log.info('Setting tempo to $_bpm BPM');
+    widget.hmiServer?.setTempo(_bpm);
+    widget.onTransportChanged?.call(_bpm, _bpb);
+  }
+
+  void _setBeatsPerBar(int value) {
+    setState(() {
+      _bpb = value;
+      _currentBeat = 0;
+    });
+    log.info('Setting beats per bar to $value');
+    widget.hmiServer?.setBeatsPerBar(value);
+    widget.onTransportChanged?.call(_bpm, _bpb);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBpb());
+  }
+
+  void _togglePlay() {
+    final newState = !_playing;
+    setState(() { _playing = newState; });
+    log.info('Setting play status to $newState');
+    widget.hmiServer?.setPlayStatus(newState);
+    if (newState) {
+      _startBeatTimer();
+    } else {
+      _stopBeatTimer();
+    }
+  }
+
+  void _tapTempo() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_lastTap != null) {
+      final diff = now - _lastTap!;
+      if (diff > 200 && diff < 2000) {
+        final bpm = 60000.0 / diff;
+        _tapTempos.add(bpm);
+        if (_tapTempos.length > 4) _tapTempos.removeAt(0);
+        final avgBpm = _tapTempos.reduce((a, b) => a + b) / _tapTempos.length;
+        setState(() { _bpm = avgBpm.roundToDouble(); });
+        widget.hmiServer?.setTempo(_bpm);
+        widget.onTransportChanged?.call(_bpm, _bpb);
+      }
+    }
+    _lastTap = now;
+  }
+
+  void _saveTransport() {
+    log.info('Saving pedalboard transport');
+    widget.hmiServer?.savePedalboard();
+    setState(() {
+      _savedBpm = _bpm;
+      _savedBpb = _bpb;
+    });
   }
 
   Widget _buildTransportBar(bool isActive) {
@@ -442,6 +556,137 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
               }),
             ),
           ],
+          const Spacer(),
+          Icon(
+            _transportEditorVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+            color: Colors.white54,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransportEditor() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xF01E1E1E),
+        border: Border(top: BorderSide(color: Colors.white12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // BPM slider row
+          Row(
+            children: [
+              SizedBox(
+                width: 100,
+                child: Text(
+                  '${_bpm.toStringAsFixed(1)} BPM',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                ),
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    activeTrackColor: Colors.orange,
+                    thumbColor: Colors.orange,
+                    inactiveTrackColor: Colors.white24,
+                    overlayColor: Colors.orange.withValues(alpha: 0.2),
+                  ),
+                  child: Slider(
+                    value: _bpm.clamp(20, 280),
+                    min: 20,
+                    max: 280,
+                    divisions: 260,
+                    onChanged: _setTempo,
+                    onChangeEnd: (_) => _commitTempo(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // BPB + controls row
+          Row(
+            children: [
+              const Text('BPB', style: TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 32,
+                  child: SingleChildScrollView(
+                    controller: _bpbScrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<int>(
+                      segments: List.generate(16, (i) {
+                        final v = i + 1;
+                        return ButtonSegment(value: v, label: Text('$v', style: const TextStyle(fontSize: 12)));
+                      }),
+                      selected: {_bpb.clamp(1, 16)},
+                      onSelectionChanged: (values) => _setBeatsPerBar(values.first),
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: WidgetStateProperty.resolveWith((states) =>
+                          states.contains(WidgetState.selected) ? Colors.black : Colors.white70),
+                        backgroundColor: WidgetStateProperty.resolveWith((states) =>
+                          states.contains(WidgetState.selected) ? Colors.orange : Colors.transparent),
+                        side: WidgetStateProperty.all(const BorderSide(color: Colors.white24)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Play/Stop
+              SizedBox(
+                width: 40,
+                height: 32,
+                child: IconButton.filled(
+                  onPressed: _togglePlay,
+                  icon: Icon(_playing ? Icons.stop : Icons.play_arrow, size: 18),
+                  style: IconButton.styleFrom(
+                    backgroundColor: _playing ? Colors.red : Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Tap tempo
+              SizedBox(
+                width: 40,
+                height: 32,
+                child: IconButton.outlined(
+                  onPressed: _tapTempo,
+                  icon: const Icon(Icons.touch_app, size: 18),
+                  style: IconButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white24),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+              if (_transportModified) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
+                  child: FilledButton.icon(
+                    onPressed: _saveTransport,
+                    icon: const Icon(Icons.save, size: 16),
+                    label: const Text('Save', style: TextStyle(fontSize: 12)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -451,7 +696,6 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     final pedalboard = pedalboards[index];
     final thumbnailFile = File("${pedalboard.path}/thumbnail.png");
     final hasThumbnail = thumbnailFile.existsSync();
-    final isActive = index == activePedalboard;
 
     return Stack(children: [
       Image.asset(
@@ -488,12 +732,6 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           ),
         ),
       ),
-      Positioned(
-        left: 0,
-        right: 0,
-        bottom: 0,
-        child: _buildTransportBar(isActive),
-      ),
     ]);
   }
 
@@ -506,6 +744,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         height: double.infinity,
       );
     }
+
+    final isActive = activePedalboard >= 0 && activePedalboard < pedalboards.length;
 
     return Stack(
       children: [
@@ -525,9 +765,34 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           },
           itemBuilder: (context, index) => _buildPedalboardPage(index),
         ),
+        // Bottom panel: transport bar + slide-up editor
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Editor panel (slides up/down)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: Alignment.bottomCenter,
+                child: _transportEditorVisible
+                    ? _buildTransportEditor()
+                    : const SizedBox.shrink(),
+              ),
+              // Transport bar (always visible, tappable)
+              GestureDetector(
+                onTap: _toggleTransportEditor,
+                child: _buildTransportBar(isActive),
+              ),
+            ],
+          ),
+        ),
         // Edit button overlay (above transport bar)
         Positioned(
-          bottom: 52,
+          bottom: _transportEditorVisible ? 160 : 52,
           right: 8,
           child: FloatingActionButton.small(
             onPressed: _toggleEditMode,

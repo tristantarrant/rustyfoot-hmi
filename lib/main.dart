@@ -9,6 +9,7 @@ import 'package:rustyfoot_hmi/bank.dart';
 import 'package:rustyfoot_hmi/banks.dart';
 import 'package:rustyfoot_hmi/bypass.dart';
 import 'package:rustyfoot_hmi/gpio_client.dart';
+import 'package:rustyfoot_hmi/hmi_protocol.dart';
 import 'package:rustyfoot_hmi/hmi_server.dart';
 import 'package:rustyfoot_hmi/midi_settings.dart';
 import 'package:rustyfoot_hmi/pedalboards.dart';
@@ -16,7 +17,6 @@ import 'package:rustyfoot_hmi/profiles.dart';
 import 'package:rustyfoot_hmi/qr.dart';
 import 'package:rustyfoot_hmi/version.dart';
 import 'package:rustyfoot_hmi/snapshots.dart';
-import 'package:rustyfoot_hmi/transport.dart';
 import 'package:rustyfoot_hmi/tuner.dart';
 
 
@@ -109,6 +109,10 @@ class _PiEdeUIState extends State<PiEdeUI> {
 
   // Active pedalboard index from HMI events
   int _activePedalboardIndex = 0;
+
+  // Transport state (synced from HMI menu item events)
+  double _bpm = 120.0;
+  int _bpb = 4;
 
   @override
   void initState() {
@@ -204,6 +208,21 @@ class _PiEdeUIState extends State<PiEdeUI> {
         _title = 'Pedalboards';
       });
     });
+
+    hmiServer.onMenuItem.listen((event) {
+      setState(() {
+        switch (event.menuId) {
+          case HMIProtocol.MENU_ID_TEMPO:
+            _bpm = (event.value as num).toDouble();
+            break;
+          case HMIProtocol.MENU_ID_BEATS_PER_BAR:
+            _bpb = event.value as int;
+            break;
+          case HMIProtocol.MENU_ID_PLAY_STATUS:
+            break;
+        }
+      });
+    });
   }
 
   Future<void> _applyBankChange(int bankId) async {
@@ -261,13 +280,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
     setState(() {
       _selectedWidget = 4;
       _title = 'Snapshots';
-    });
-  }
-
-  void _onTransport() {
-    setState(() {
-      _selectedWidget = 5;
-      _title = 'Transport';
     });
   }
 
@@ -355,7 +367,25 @@ class _PiEdeUIState extends State<PiEdeUI> {
   Widget _buildBody() {
     switch (_selectedWidget) {
       case 0:
-        return PedalboardsWidget(hmiServer: hmiServer, bankId: _currentBankId, activePedalboardIndex: _activePedalboardIndex);
+        return PedalboardsWidget(
+          hmiServer: hmiServer,
+          bankId: _currentBankId,
+          activePedalboardIndex: _activePedalboardIndex,
+          liveBpm: _bpm,
+          liveBpb: _bpb,
+          onPedalboardInfo: (name, bpm, bpb) {
+            setState(() {
+              _bpm = bpm;
+              _bpb = bpb.toInt();
+            });
+          },
+          onTransportChanged: (bpm, bpb) {
+            setState(() {
+              _bpm = bpm;
+              _bpb = bpb;
+            });
+          },
+        );
       case 1:
         return BanksWidget(
           selectedBankId: _currentBankId,
@@ -368,7 +398,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
       case 4:
         return SnapshotsWidget(hmiServer: hmiServer);
       case 5:
-        return TransportWidget(hmiServer: hmiServer);
+        return const Center(child: Text('Transport'));
       case 6:
         return BypassWidget(hmiServer: hmiServer);
       case 7:
@@ -448,15 +478,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
               selected: _selectedWidget == 3,
               onTap: () {
                 _onTuner();
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.speed),
-              title: const Text('Transport'),
-              selected: _selectedWidget == 5,
-              onTap: () {
-                _onTransport();
                 Navigator.pop(context);
               },
             ),

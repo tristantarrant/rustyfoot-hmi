@@ -7,25 +7,53 @@ import 'package:rustyfoot_hmi/hmi_server.dart';
 
 final _log = Logger('Transport');
 
+typedef TransportChangeCallback = void Function(double bpm, int bpb);
+
 class TransportWidget extends StatefulWidget {
   final HMIServer? hmiServer;
+  final String pedalboardName;
+  final double initialBpm;
+  final int initialBpb;
+  final bool initialPlaying;
+  final VoidCallback? onPedalboardTap;
+  final TransportChangeCallback? onTransportChanged;
 
-  const TransportWidget({super.key, this.hmiServer});
+  const TransportWidget({
+    super.key,
+    this.hmiServer,
+    this.pedalboardName = '',
+    this.initialBpm = 120.0,
+    this.initialBpb = 4,
+    this.initialPlaying = false,
+    this.onPedalboardTap,
+    this.onTransportChanged,
+  });
 
   @override
   State<TransportWidget> createState() => _TransportWidgetState();
 }
 
 class _TransportWidgetState extends State<TransportWidget> {
-  double _tempo = 120.0;
-  int _beatsPerBar = 4;
-  bool _playing = false;
+  late double _tempo;
+  late int _beatsPerBar;
+  late bool _playing;
+  late double _savedTempo;
+  late int _savedBpb;
   StreamSubscription<MenuItemEvent>? _subscription;
+  final ScrollController _bpbScrollController = ScrollController();
+
+  bool get _modified => _tempo != _savedTempo || _beatsPerBar != _savedBpb;
 
   @override
   void initState() {
     super.initState();
+    _tempo = widget.initialBpm;
+    _beatsPerBar = widget.initialBpb;
+    _playing = widget.initialPlaying;
+    _savedTempo = widget.initialBpm;
+    _savedBpb = widget.initialBpb;
     _subscribe();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBpb());
   }
 
   void _subscribe() {
@@ -49,9 +77,24 @@ class _TransportWidgetState extends State<TransportWidget> {
     });
   }
 
+  void _scrollToBpb() {
+    if (!_bpbScrollController.hasClients) return;
+    // Each segment is roughly 40px wide; center the selected one
+    const segmentWidth = 40.0;
+    final targetOffset = (_beatsPerBar - 1) * segmentWidth -
+        (_bpbScrollController.position.viewportDimension / 2) +
+        (segmentWidth / 2);
+    _bpbScrollController.animateTo(
+      targetOffset.clamp(0.0, _bpbScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
+    _bpbScrollController.dispose();
     super.dispose();
   }
 
@@ -64,6 +107,7 @@ class _TransportWidgetState extends State<TransportWidget> {
   void _commitTempo() {
     _log.info('Setting tempo to $_tempo BPM');
     widget.hmiServer?.setTempo(_tempo);
+    widget.onTransportChanged?.call(_tempo, _beatsPerBar);
   }
 
   void _setBeatsPerBar(int value) {
@@ -72,6 +116,8 @@ class _TransportWidgetState extends State<TransportWidget> {
     });
     _log.info('Setting beats per bar to $value');
     widget.hmiServer?.setBeatsPerBar(value);
+    widget.onTransportChanged?.call(_tempo, _beatsPerBar);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBpb());
   }
 
   void _togglePlay() {
@@ -84,26 +130,33 @@ class _TransportWidgetState extends State<TransportWidget> {
   }
 
   void _tapTempo() {
-    // Simple tap tempo implementation
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_lastTap != null) {
       final diff = now - _lastTap!;
       if (diff > 200 && diff < 2000) {
-        // Valid tap interval (30-300 BPM range)
         final bpm = 60000.0 / diff;
         _tapTempos.add(bpm);
         if (_tapTempos.length > 4) {
           _tapTempos.removeAt(0);
         }
-        // Average the last taps
         final avgBpm = _tapTempos.reduce((a, b) => a + b) / _tapTempos.length;
         setState(() {
           _tempo = avgBpm.roundToDouble();
         });
         widget.hmiServer?.setTempo(_tempo);
+        widget.onTransportChanged?.call(_tempo, _beatsPerBar);
       }
     }
     _lastTap = now;
+  }
+
+  void _save() {
+    _log.info('Saving pedalboard');
+    widget.hmiServer?.savePedalboard();
+    setState(() {
+      _savedTempo = _tempo;
+      _savedBpb = _beatsPerBar;
+    });
   }
 
   int? _lastTap;
@@ -116,10 +169,47 @@ class _TransportWidgetState extends State<TransportWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Pedalboard name header
+          if (widget.pedalboardName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.onPedalboardTap,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.arrow_back, size: 18),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              widget.pedalboardName,
+                              style: Theme.of(context).textTheme.titleMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_modified)
+                    FilledButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.save, size: 18),
+                      label: const Text('Save'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
           // Tempo display
           Card(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Column(
                 children: [
                   Text(
@@ -139,33 +229,42 @@ class _TransportWidgetState extends State<TransportWidget> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
 
           // Beats per bar
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Beats per bar'),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 2, label: Text('2')),
-                      ButtonSegment(value: 3, label: Text('3')),
-                      ButtonSegment(value: 4, label: Text('4')),
-                      ButtonSegment(value: 6, label: Text('6')),
-                    ],
-                    selected: {_beatsPerBar},
-                    onSelectionChanged: (values) {
-                      _setBeatsPerBar(values.first);
-                    },
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _bpbScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: SegmentedButton<int>(
+                        segments: List.generate(16, (i) {
+                          final v = i + 1;
+                          return ButtonSegment(value: v, label: Text('$v'));
+                        }),
+                        selected: {_beatsPerBar.clamp(1, 16)},
+                        onSelectionChanged: (values) {
+                          _setBeatsPerBar(values.first);
+                        },
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
+
+          const SizedBox(height: 4),
 
           // Transport controls
           Expanded(
