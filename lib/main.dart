@@ -100,6 +100,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
   final HMIServer hmiServer = HMIServer.init();
   final GPIOClient gpioClient = GPIOClient.init();
   final Widget qrWidget = Center(child: LocalAddressQRWidget());
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedWidget = 0;
   String _title = appName;
 
@@ -192,7 +193,9 @@ class _PiEdeUIState extends State<PiEdeUI> {
     });
 
     hmiServer.onPedalboardChange.listen((event) {
+      if (!mounted) return;
       log.info("Main: pedalboard change event: index=${event.index}");
+      _closeDrawerIfOpen();
       setState(() {
         _activePedalboardIndex = event.index;
         _selectedWidget = 0;
@@ -201,7 +204,9 @@ class _PiEdeUIState extends State<PiEdeUI> {
     });
 
     hmiServer.onPedalboardLoad.listen((event) {
+      if (!mounted) return;
       log.info("Main: pedalboard load event: index=${event.index}, uri=${event.uri}");
+      _closeDrawerIfOpen();
       setState(() {
         _activePedalboardIndex = event.index;
         _selectedWidget = 0;
@@ -210,6 +215,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
     });
 
     hmiServer.onMenuItem.listen((event) {
+      if (!mounted) return;
       setState(() {
         switch (event.menuId) {
           case HMIProtocol.MENU_ID_TEMPO:
@@ -223,6 +229,12 @@ class _PiEdeUIState extends State<PiEdeUI> {
         }
       });
     });
+  }
+
+  void _closeDrawerIfOpen() {
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      _scaffoldKey.currentState?.closeDrawer();
+    }
   }
 
   Future<void> _applyBankChange(int bankId) async {
@@ -413,19 +425,18 @@ class _PiEdeUIState extends State<PiEdeUI> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
-        backgroundColor: accentColor,
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
         toolbarHeight: 34,
-        title: Text(_title),
-        leading: Builder(
-          builder: (context) {
-            return IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          },
+        title: GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          child: Text(_title),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
           Padding(
@@ -433,7 +444,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
             child: Center(
               child: Text(
                 '$_currentBankName  [$gitCommit]',
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ),
           ),
@@ -449,7 +460,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Pedalboards'),
               selected: _selectedWidget == 0,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onPedalboard());
               },
             ),
@@ -458,7 +469,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Banks'),
               selected: _selectedWidget == 1,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onBanks());
               },
             ),
@@ -467,7 +478,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Snapshots'),
               selected: _selectedWidget == 4,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onSnapshots());
               },
             ),
@@ -477,7 +488,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Tuner'),
               selected: _selectedWidget == 3,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onTuner());
               },
             ),
@@ -486,7 +497,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Bypass'),
               selected: _selectedWidget == 6,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onBypass());
               },
             ),
@@ -496,7 +507,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('MIDI'),
               selected: _selectedWidget == 7,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onMIDI());
               },
             ),
@@ -505,7 +516,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Profiles'),
               selected: _selectedWidget == 8,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onProfiles());
               },
             ),
@@ -514,7 +525,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Wi-Fi'),
               selected: _selectedWidget == 2,
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onWiFi());
               },
             ),
@@ -523,7 +534,7 @@ class _PiEdeUIState extends State<PiEdeUI> {
               leading: const Icon(Icons.power_settings_new),
               title: const Text('Power'),
               onTap: () {
-                Navigator.pop(context);
+                _closeDrawerIfOpen();
                 _onPowerOff(context);
               },
             ),
