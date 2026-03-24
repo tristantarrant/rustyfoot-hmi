@@ -51,6 +51,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   Timer? _beatTimer;
   int _currentBeat = 0;
 
+  // System stats
+  double _dspLoad = 0.0;
+  double _memUsage = 0.0; // 0.0 to 1.0
+  Timer? _memTimer;
+
   // Transport editor
   bool _transportEditorVisible = false;
   double _savedBpm = 120.0;
@@ -86,6 +91,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     if (widget.liveBpb != null) _bpb = widget.liveBpb!;
     load();
     _subscribeToHmiEvents();
+    _updateMemUsage();
+    _memTimer = Timer.periodic(const Duration(seconds: 3), (_) => _updateMemUsage());
   }
 
   void _subscribeToHmiEvents() {
@@ -151,6 +158,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           } else {
             _stopBeatTimer();
           }
+          break;
+        case HMIProtocol.MENU_ID_DSP_LOAD:
+          setState(() {
+            _dspLoad = (event.value as num).toDouble();
+          });
           break;
       }
     });
@@ -235,6 +247,27 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     if (_playing) _startBeatTimer();
   }
 
+  void _updateMemUsage() {
+    try {
+      final content = File('/proc/meminfo').readAsStringSync();
+      int? total, available;
+      for (final line in content.split('\n')) {
+        if (line.startsWith('MemTotal:')) {
+          total = int.tryParse(line.split(RegExp(r'\s+'))[1]);
+        } else if (line.startsWith('MemAvailable:')) {
+          available = int.tryParse(line.split(RegExp(r'\s+'))[1]);
+        }
+        if (total != null && available != null) break;
+      }
+      if (total != null && available != null && total > 0) {
+        if (!mounted) return;
+        setState(() {
+          _memUsage = (total! - available!) / total!;
+        });
+      }
+    } catch (_) {}
+  }
+
   void _initTransportFromPedalboard(int index) {
     if (index >= 0 && index < pedalboards.length) {
       final pb = pedalboards[index];
@@ -280,6 +313,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     _clearSubscription?.cancel();
     _reloadSubscription?.cancel();
     _transportSubscription?.cancel();
+    _memTimer?.cancel();
     _stopBeatTimer();
     _bpbScrollController.dispose();
     _pageController?.dispose();
@@ -404,6 +438,61 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         });
       }
     }
+  }
+
+  Widget _buildStatsOverlay() {
+    final dspColor = _dspLoad > 80 ? Colors.red : (_dspLoad > 50 ? Colors.orange : Colors.green);
+    final memColor = _memUsage > 0.85 ? Colors.red : (_memUsage > 0.65 ? Colors.orange : Colors.green);
+    final memPct = (_memUsage * 100).round();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(8),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildStatBar('DSP', _dspLoad / 100, dspColor, '${_dspLoad.toStringAsFixed(0)}%'),
+          const SizedBox(height: 2),
+          _buildStatBar('MEM', _memUsage, memColor, '$memPct%'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatBar(String label, double value, Color color, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace'),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 50,
+          height: 6,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: value.clamp(0.0, 1.0),
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(color: Colors.white70, fontSize: 9, fontFamily: 'monospace'),
+        ),
+      ],
+    );
   }
 
   void _toggleTransportEditor() {
@@ -775,6 +864,12 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
             }
           },
           itemBuilder: (context, index) => _buildPedalboardPage(index),
+        ),
+        // Stats overlay (top right)
+        Positioned(
+          top: 0,
+          right: 0,
+          child: _buildStatsOverlay(),
         ),
         // Bottom panel: transport bar + slide-up editor
         Positioned(

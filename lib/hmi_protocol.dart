@@ -159,4 +159,5 @@ class HMIProtocol {
   static const int MENU_ID_MASTER_VOL_PORT = 42;
   static const int MENU_ID_EXP_MODE = 43;
   static const int MENU_ID_TOP = 44;
+  static const int MENU_ID_DSP_LOAD = 50;
 }
