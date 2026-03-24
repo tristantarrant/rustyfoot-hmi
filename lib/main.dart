@@ -449,8 +449,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Pedalboards'),
               selected: _selectedWidget == 0,
               onTap: () {
-                _onPedalboard();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onPedalboard());
               },
             ),
             ListTile(
@@ -458,8 +458,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Banks'),
               selected: _selectedWidget == 1,
               onTap: () {
-                _onBanks();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onBanks());
               },
             ),
             ListTile(
@@ -467,8 +467,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Snapshots'),
               selected: _selectedWidget == 4,
               onTap: () {
-                _onSnapshots();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onSnapshots());
               },
             ),
             const Divider(),
@@ -477,8 +477,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Tuner'),
               selected: _selectedWidget == 3,
               onTap: () {
-                _onTuner();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onTuner());
               },
             ),
             ListTile(
@@ -486,8 +486,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Bypass'),
               selected: _selectedWidget == 6,
               onTap: () {
-                _onBypass();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onBypass());
               },
             ),
             const Divider(),
@@ -496,8 +496,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('MIDI'),
               selected: _selectedWidget == 7,
               onTap: () {
-                _onMIDI();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onMIDI());
               },
             ),
             ListTile(
@@ -505,8 +505,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Profiles'),
               selected: _selectedWidget == 8,
               onTap: () {
-                _onProfiles();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onProfiles());
               },
             ),
             ListTile(
@@ -514,8 +514,8 @@ class _PiEdeUIState extends State<PiEdeUI> {
               title: const Text('Wi-Fi'),
               selected: _selectedWidget == 2,
               onTap: () {
-                _onWiFi();
                 Navigator.pop(context);
+                WidgetsBinding.instance.addPostFrameCallback((_) => _onWiFi());
               },
             ),
             const Divider(),
