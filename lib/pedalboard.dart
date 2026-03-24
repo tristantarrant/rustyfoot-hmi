@@ -164,19 +164,37 @@ class Pedalboard {
 
   /// Read file parameter values from the LV2 state directory for a plugin instance.
   /// State files are stored in effect-{instanceNumber}/effect.ttl within the
-  /// pedalboard bundle, containing entries like `<param_uri> "path"` .
+  /// pedalboard bundle. The state format uses angle brackets for both param URI
+  /// and file value: `<param_uri> <url_encoded_filename>`
+  /// The file value is relative to the effect directory and URL-encoded.
   Map<String, String> _readFileParamState(int instanceNumber) {
     final fileValues = <String, String>{};
-    final effectTtl = File('$path/effect-$instanceNumber/effect.ttl');
+    final effectDir = '$path/effect-$instanceNumber';
+    final effectTtl = File('$effectDir/effect.ttl');
     if (!effectTtl.existsSync()) return fileValues;
 
     try {
       final content = effectTtl.readAsStringSync();
-      final pattern = RegExp(r'<([^>]+)>\s+"([^"]*)"');
-      for (final match in pattern.allMatches(content)) {
+      // Match state entries: <param_uri> <filename> or <param_uri> "path"
+      // Inside state:state [...] block, params look like:
+      //   <http://...#model> <URL%20encoded%20name.nam>
+      // or sometimes:
+      //   <http://...#model> "/absolute/path"
+      final anglePattern = RegExp(r'<(https?://[^>]+)>\s+<([^>]+)>');
+      for (final match in anglePattern.allMatches(content)) {
+        final paramUri = match.group(1)!;
+        final rawValue = match.group(2)!;
+        // Skip URIs that look like full http URLs (not file references)
+        if (rawValue.startsWith('http://') || rawValue.startsWith('https://')) continue;
+        final decoded = Uri.decodeComponent(rawValue);
+        fileValues[paramUri] = decoded;
+      }
+      // Also match quoted string values: <param_uri> "path"
+      final quotedPattern = RegExp(r'<(https?://[^>]+)>\s+"([^"]*)"');
+      for (final match in quotedPattern.allMatches(content)) {
         final paramUri = match.group(1)!;
         final value = match.group(2)!;
-        if (value.isNotEmpty && value != 'None' && value.contains('/')) {
+        if (value.isNotEmpty && value != 'None') {
           fileValues[paramUri] = value;
         }
       }

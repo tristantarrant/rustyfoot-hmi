@@ -307,11 +307,24 @@ class LV2PluginCache {
     // Try to load from disk cache first
     await _loadDiskCache();
 
-    final lv2Paths = <String>[
-      '/usr/lib/lv2',
-      '/usr/local/lib/lv2',
-      '${Platform.environment['HOME']}/.lv2',
-    ];
+    final lv2Paths = <String>[];
+    // Use LV2_PATH if set, otherwise use standard paths
+    final lv2PathEnv = Platform.environment['LV2_PATH'];
+    if (lv2PathEnv != null && lv2PathEnv.isNotEmpty) {
+      lv2Paths.addAll(lv2PathEnv.split(':'));
+    } else {
+      lv2Paths.addAll([
+        '/usr/lib/lv2',
+        '/usr/local/lib/lv2',
+        '${Platform.environment['HOME']}/.lv2',
+      ]);
+    }
+    // Always include the rustyfoot plugins directory
+    final dataDir = Platform.environment['MOD_DATA_DIR'];
+    if (dataDir != null) {
+      final pluginsDir = '$dataDir/plugins';
+      if (!lv2Paths.contains(pluginsDir)) lv2Paths.add(pluginsDir);
+    }
 
     // Build index in isolate
     final index = await Isolate.run(() => _buildIndexInIsolate(lv2Paths));

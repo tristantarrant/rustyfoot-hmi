@@ -701,26 +701,45 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       Center(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 48),
-          child: Text(
-            pedalboard.name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 50,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black,
-                  offset: Offset(5.0, 5.0),
-                  blurRadius: 10.0,
+          child: Stack(
+            children: [
+              // Outer white outline
+              Text(
+                pedalboard.name,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 50,
+                  fontWeight: FontWeight.bold,
+                  foreground: Paint()
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 6
+                    ..color = Colors.white,
                 ),
-                Shadow(
-                  color: Colors.blue.shade200,
-                  offset: Offset(-5.0, -5.0),
-                  blurRadius: 8.0,
+              ),
+              // Black stroke inside
+              Text(
+                pedalboard.name,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 50,
+                  fontWeight: FontWeight.bold,
+                  foreground: Paint()
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 3
+                    ..color = Colors.black,
                 ),
-              ],
-            ),
+              ),
+              // White fill center
+              Text(
+                pedalboard.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 50,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
       ),
