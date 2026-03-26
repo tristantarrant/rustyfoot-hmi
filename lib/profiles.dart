@@ -47,10 +47,11 @@ class _ProfilesWidgetState extends State<ProfilesWidget> {
   }
 
   void _loadProfile(int index) {
-    _log.info('Loading profile $index');
-    widget.hmiServer?.loadProfile(index);
+    final profileIndex = index + 1; // Protocol uses 1-based indices
+    _log.info('Loading profile $profileIndex');
+    widget.hmiServer?.loadProfile(profileIndex);
     setState(() {
-      _currentIndex = index;
+      _currentIndex = index + 1;
     });
   }
 
@@ -68,8 +69,8 @@ class _ProfilesWidgetState extends State<ProfilesWidget> {
             ),
             TextButton(
               onPressed: () {
-                _log.info('Storing profile $index');
-                widget.hmiServer?.storeProfile(index);
+                _log.info('Storing profile ${index + 1}');
+                widget.hmiServer?.storeProfile(index + 1);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -117,7 +118,7 @@ class _ProfilesWidgetState extends State<ProfilesWidget> {
                   itemCount: _profiles.length,
                   itemBuilder: (context, index) {
                     final profile = _profiles[index];
-                    final isSelected = index == _currentIndex;
+                    final isSelected = (index + 1) == _currentIndex;
                     return ListTile(
                       leading: Icon(
                         isSelected ? Icons.check_circle : Icons.person_outline,
