@@ -7,6 +7,7 @@ Standards-Version: 4.6.2
 
 Package: rustyfoot-hmi
 Architecture: arm64
+Build-Profiles: <!desktop>
 Depends: ${misc:Depends},
          rustyfoot,
          libdrm2,
@@ -23,6 +24,18 @@ Depends: ${misc:Depends},
          libglib2.0-0,
          libatomic1,
          fonts-freefont-ttf
-Description: Rustyfoot HMI for MOD Audio
+Description: Rustyfoot HMI for MOD Audio (Raspberry Pi)
  Flutter-based touchscreen interface for MOD Audio's mod-ui system,
- designed for Raspberry Pi.
+ designed for Raspberry Pi with Flutter-Pi (EGL/DRM).
+
+Package: rustyfoot-hmi-desktop
+Architecture: amd64 arm64
+Build-Profiles: <desktop>
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         rustyfoot-desktop,
+         libgtk-3-0,
+         fonts-freefont-ttf
+Description: Rustyfoot HMI for MOD Audio (desktop Linux)
+ Flutter-based GTK interface for Rustyfoot on desktop Linux.
+ Windowed application that communicates with rustyfoot over localhost.

@@ -3,26 +3,45 @@
 %:
 	dh $@
 
+ifneq (,$(filter desktop,$(DEB_BUILD_PROFILES)))
+
+# === Desktop build: Flutter Linux (GTK) ===
+
+override_dh_auto_build:
+	flutter build linux --release
+
+override_dh_auto_install:
+	mkdir -p debian/rustyfoot-hmi-desktop/usr/lib/rustyfoot-hmi
+	cp -a build/linux/*/release/bundle/. debian/rustyfoot-hmi-desktop/usr/lib/rustyfoot-hmi/
+	install -D -m 755 debian/rustyfoot-hmi-desktop.sh debian/rustyfoot-hmi-desktop/usr/bin/rustyfoot-hmi
+	install -D -m 644 debian/rustyfoot-hmi-desktop.desktop debian/rustyfoot-hmi-desktop/usr/share/applications/rustyfoot-hmi.desktop
+	install -D -m 644 debian/rustyfoot-hmi-desktop.conf debian/rustyfoot-hmi-desktop/etc/ld.so.conf.d/rustyfoot-hmi.conf
+
+override_dh_strip:
+	dh_strip
+
+override_dh_dwz:
+	dh_dwz
+
+override_dh_shlibdeps:
+	dh_shlibdeps
+
+override_dh_makeshlibs:
+	dh_makeshlibs
+
+else
+
+# === Pi build: Flutter-Pi (EGL/DRM) ===
+
 override_dh_auto_build:
 	flutterpi_tool build --release --arch=arm64
 
 override_dh_auto_install:
-	# Application bundle
 	mkdir -p debian/rustyfoot-hmi/usr/lib/rustyfoot-hmi
 	cp -a build/flutter-pi/aarch64-generic/. debian/rustyfoot-hmi/usr/lib/rustyfoot-hmi/
-	# Wrapper script
 	install -D -m 755 debian/rustyfoot-hmi.sh debian/rustyfoot-hmi/usr/bin/rustyfoot-hmi
-	# Systemd service
 	install -D -m 644 debian/rustyfoot-hmi.service debian/rustyfoot-hmi/usr/lib/systemd/system/rustyfoot-hmi.service
-	# ld.so config for libflutter_engine.so
 	install -D -m 644 debian/rustyfoot-hmi.conf debian/rustyfoot-hmi/etc/ld.so.conf.d/rustyfoot-hmi.conf
-
-override_dh_auto_test:
-	# Skip tests during build
-
-override_dh_auto_clean:
-	# Intentionally not cleaning build artifacts to allow incremental builds.
-	# Use 'flutterpi_tool build' manually to rebuild.
 
 override_dh_strip:
 	# Skip stripping pre-built arm64 binaries
@@ -35,3 +54,11 @@ override_dh_shlibdeps:
 
 override_dh_makeshlibs:
 	# Skip shared library detection for cross-built binaries
+
+endif
+
+override_dh_auto_test:
+	# Skip tests during build
+
+override_dh_auto_clean:
+	# Intentionally not cleaning build artifacts to allow incremental builds.

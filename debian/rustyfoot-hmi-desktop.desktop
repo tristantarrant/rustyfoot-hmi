@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Rustyfoot HMI
+GenericName=Pedalboard Controller
+Comment=Touchscreen controller for Rustyfoot LV2 pedalboard manager
+Exec=rustyfoot-hmi
+Icon=rustyfoot
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Music;
+Keywords=audio;lv2;pedalboard;guitar;effects;hmi;
