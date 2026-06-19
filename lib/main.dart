@@ -79,7 +79,11 @@ class UI extends StatelessWidget {
     return MaterialApp(
       title: appName,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: accentColor, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(seedColor: accentColor, brightness: Brightness.dark).copyWith(
+          primary: accentColor,
+          primaryContainer: accentColor,
+          onPrimaryContainer: Colors.black,
+        ),
         useMaterial3: true,
       ),
       home: const PiEdeUI(title: appName),
