@@ -153,6 +153,7 @@ class HMIProtocol {
   static const int MENU_ID_BYPASS2 = 12;
   static const int MENU_ID_BRIGHTNESS = 13;
   static const int MENU_ID_CURRENT_PROFILE = 14;
+  static const int MENU_ID_SNAPSHOT_PRGCH_OFFSET = 15;
   static const int MENU_ID_FOOTSWITCH_NAV = 30;
   static const int MENU_ID_EXP_CV_INPUT = 40;
   static const int MENU_ID_HP_CV_OUTPUT = 41;

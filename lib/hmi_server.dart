@@ -618,6 +618,11 @@ class HMIServer {
     setMenuItem(HMIProtocol.MENU_ID_MIDI_CLK_SEND, send ? 1 : 0);
   }
 
+  /// Set snapshot program change offset (0=disabled)
+  void setSnapshotPrgChOffset(int offset) {
+    setMenuItem(HMIProtocol.MENU_ID_SNAPSHOT_PRGCH_OFFSET, offset);
+  }
+
   // ============ Profile Commands ============
 
   /// Request profiles list
