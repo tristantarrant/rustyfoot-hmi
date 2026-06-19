@@ -34,6 +34,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   var pedalboards = <Pedalboard>[];
   var activePedalboard = -1;
   var _editMode = false;
+  bool _loadingPedalboards = true;
   List<Pedal>? _pedals;
   bool _loadingPedals = false;
   Pedal? _selectedPedal;
@@ -42,7 +43,12 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   StreamSubscription<void>? _clearSubscription;
   StreamSubscription<void>? _reloadSubscription;
   StreamSubscription<MenuItemEvent>? _transportSubscription;
+  StreamSubscription<SnapshotsEvent>? _snapshotSubscription;
   PageController? _pageController;
+
+  // Snapshot state
+  List<Snapshot> _snapshots = [];
+  int _currentSnapshotIndex = -1;
 
   // Transport state
   double _bpm = 120.0;
@@ -115,8 +121,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           _editMode = false;
           _pedals = null;
           _selectedPedal = null;
+          _snapshots = [];
+          _currentSnapshotIndex = -1;
         });
         _pageController?.jumpToPage(targetIndex);
+        hmi.getSnapshots();
       }
     });
 
@@ -126,12 +135,15 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
         _editMode = false;
         _pedals = null;
         _selectedPedal = null;
+        _snapshots = [];
+        _currentSnapshotIndex = -1;
       });
       _fileParamValues.clear();
     });
 
     _reloadSubscription = hmi.onPedalboardReload.listen((_) {
       log.info("HMI pedalboard list reload");
+      setState(() { _loadingPedalboards = true; });
       load();
     });
 
@@ -165,6 +177,14 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           });
           break;
       }
+    });
+
+    _snapshotSubscription = hmi.onSnapshots.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _snapshots = event.snapshots;
+        _currentSnapshotIndex = event.currentIndex;
+      });
     });
 
     _fileParamSubscription = hmi.onFileParam.listen((event) {
@@ -290,8 +310,8 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       _bpb = widget.liveBpb!;
     }
     if (widget.bankId != oldWidget.bankId) {
-      // Bank changed: reload pedalboard list in new bank order
-      load();
+      // Bank changed: refilter cached pedalboards (no rescan needed)
+      _applyFilter();
     } else if (widget.activePedalboardIndex != oldWidget.activePedalboardIndex) {
       final targetIndex = widget.activePedalboardIndex;
       if (targetIndex >= 0 && targetIndex < pedalboards.length && targetIndex != activePedalboard) {
@@ -300,8 +320,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
           _editMode = false;
           _pedals = null;
           _selectedPedal = null;
+          _snapshots = [];
+          _currentSnapshotIndex = -1;
         });
         _pageController?.jumpToPage(targetIndex);
+        widget.hmiServer?.getSnapshots();
       }
     }
   }
@@ -313,6 +336,7 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     _clearSubscription?.cancel();
     _reloadSubscription?.cancel();
     _transportSubscription?.cancel();
+    _snapshotSubscription?.cancel();
     _memTimer?.cancel();
     _stopBeatTimer();
     _bpbScrollController.dispose();
@@ -320,37 +344,43 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     super.dispose();
   }
 
-  Future load() async {
+  // Cached pedalboard data from disk — only rescanned on explicit reload
+  Map<String, Pedalboard> _allPedalboards = {};
+
+  /// Scan the filesystem for pedalboards and cache them.
+  Future<void> _scanPedalboards() async {
     var pedalboardsDir = Platform.environment['MOD_USER_PEDALBOARDS_DIR']
         ?? '${Platform.environment['HOME']}/.pedalboards';
     Directory dir = Directory(pedalboardsDir);
-    log.info("Loading pedalboards from $dir for bank ${widget.bankId}");
+    log.info("Scanning pedalboards from $dir");
     if (!dir.existsSync()) {
       log.warning("Pedalboards directory does not exist: $pedalboardsDir");
-      return pedalboards;
+      _allPedalboards = {};
+      return;
     }
 
-    // Load all pedalboards from disk into a map keyed by path
     var pDirs = dir.listSync(recursive: false).toList();
-    final allPedalboards = <String, Pedalboard>{};
+    final scanned = <String, Pedalboard>{};
     for (var pDir in pDirs) {
       final pb = Pedalboard.load(pDir);
-      if (pb != null) allPedalboards[pb.path] = pb;
+      if (pb != null) scanned[pb.path] = pb;
     }
+    _allPedalboards = scanned;
+  }
 
-    // Build the new list without modifying state yet
+  /// Filter/order the cached pedalboards for the current bank.
+  Future<List<Pedalboard>> _filterForBank() async {
     final newPedalboards = <Pedalboard>[];
 
     if (widget.bankId > 1) {
       // User bank selected: show only its pedalboards in bank order
       final banks = await Bank.loadAll();
-      if (!mounted) return pedalboards;
+      if (!mounted) return [];
       final bank = banks.where((b) => b.id == widget.bankId).firstOrNull;
       if (bank != null) {
         for (final bundle in bank.pedalboardBundles) {
-          // Try exact match first, then try resolving symlinks
-          final pb = allPedalboards[bundle] ??
-              allPedalboards.values.where((p) {
+          final pb = _allPedalboards[bundle] ??
+              _allPedalboards.values.where((p) {
                 try {
                   return Directory(p.path).resolveSymbolicLinksSync() ==
                       Directory(bundle).resolveSymbolicLinksSync();
@@ -367,11 +397,24 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
       }
     } else {
       // "All Pedalboards": show all, sorted alphabetically by path
-      final sorted = allPedalboards.values.toList();
+      final sorted = _allPedalboards.values.toList();
       sorted.sort((a, b) => a.path.compareTo(b.path));
       newPedalboards.addAll(sorted);
     }
 
+    return newPedalboards;
+  }
+
+  /// Full reload: rescan filesystem, then filter for current bank.
+  Future load() async {
+    log.info("Loading pedalboards for bank ${widget.bankId}");
+    await _scanPedalboards();
+    await _applyFilter();
+  }
+
+  /// Apply bank filter on cached data (no filesystem rescan).
+  Future _applyFilter() async {
+    final newPedalboards = await _filterForBank();
     if (!mounted) return pedalboards;
 
     // Update state atomically — dispose old controller after the frame
@@ -391,13 +434,18 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     setState(() {
       pedalboards = newPedalboards;
       activePedalboard = initialPage;
+      _loadingPedalboards = false;
       _editMode = false;
       _pedals = null;
       _selectedPedal = null;
+      _snapshots = [];
+      _currentSnapshotIndex = -1;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       oldController?.dispose();
     });
+    // Request snapshots for the active pedalboard
+    widget.hmiServer?.getSnapshots();
     return pedalboards;
   }
 
@@ -773,62 +821,152 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
     );
   }
 
+  void _showSnapshotSelector() {
+    if (_snapshots.length <= 1) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xF01E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Snapshots',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Colors.white24),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.4,
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _snapshots.length,
+                  itemBuilder: (context, index) {
+                    final snapshot = _snapshots[index];
+                    final isSelected = index == _currentSnapshotIndex;
+                    return ListTile(
+                      leading: Icon(
+                        isSelected ? Icons.check_circle : Icons.circle_outlined,
+                        color: isSelected ? Colors.orange : Colors.white38,
+                      ),
+                      title: Text(
+                        snapshot.name,
+                        style: TextStyle(
+                          color: isSelected ? Colors.orange : Colors.white,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        log.info('Loading snapshot $index: ${snapshot.name}');
+                        widget.hmiServer?.loadSnapshot(index);
+                        setState(() {
+                          _currentSnapshotIndex = index;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOutlinedText(String text, {required double fontSize, FontWeight fontWeight = FontWeight.bold}) {
+    return Stack(
+      children: [
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 6
+              ..color = Colors.white,
+          ),
+        ),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..color = Colors.black,
+          ),
+        ),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPedalboardPage(int index) {
     final pedalboard = pedalboards[index];
-    final thumbnailFile = File("${pedalboard.path}/thumbnail.png");
-    final hasThumbnail = thumbnailFile.existsSync();
+
+    final hasSnapshots = _snapshots.isNotEmpty;
+    final currentSnapshotName = (_currentSnapshotIndex >= 0 && _currentSnapshotIndex < _snapshots.length)
+        ? _snapshots[_currentSnapshotIndex].name
+        : null;
 
     return Stack(children: [
       Image.asset(
-        'assets/pedalboard.png',
+        'assets/pedalboard.jpg',
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,
       ),
-      if (hasThumbnail)
-        Image(image: FileImage(thumbnailFile)),
       Center(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 48),
-          child: Stack(
-            children: [
-              // Outer white outline
-              Text(
-                pedalboard.name,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.bold,
-                  foreground: Paint()
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = 6
-                    ..color = Colors.white,
-                ),
-              ),
-              // Black stroke inside
-              Text(
-                pedalboard.name,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.bold,
-                  foreground: Paint()
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = 3
-                    ..color = Colors.black,
-                ),
-              ),
-              // White fill center
-              Text(
-                pedalboard.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 50,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          child: GestureDetector(
+            onTap: _snapshots.length > 1 ? _showSnapshotSelector : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildOutlinedText(pedalboard.name, fontSize: 50),
+                if (hasSnapshots && currentSnapshotName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildOutlinedText(currentSnapshotName, fontSize: 24, fontWeight: FontWeight.w500),
+                      if (_snapshots.length > 1) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.unfold_more, color: Colors.white70, size: 20),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -836,12 +974,20 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
   }
 
   Widget _buildPedalboardView() {
-    if (pedalboards.isEmpty || _pageController == null) {
-      return Image.asset(
-        'assets/pedalboard.png',
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
+    if (_loadingPedalboards || pedalboards.isEmpty || _pageController == null) {
+      return Stack(
+        children: [
+          Image.asset(
+            'assets/pedalboard.jpg',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          if (_loadingPedalboards)
+            const Center(
+              child: CircularProgressIndicator(color: Colors.orange),
+            ),
+        ],
       );
     }
 
@@ -859,8 +1005,11 @@ class _PedalboardsWidgetState extends State<PedalboardsWidget> {
                 activePedalboard = index;
                 _pedals = null;
                 _selectedPedal = null;
+                _snapshots = [];
+                _currentSnapshotIndex = -1;
               });
               widget.hmiServer?.loadPedalboard(index);
+              // Snapshot list will be refreshed when rustyfoot responds with ssg
             }
           },
           itemBuilder: (context, index) => _buildPedalboardPage(index),
