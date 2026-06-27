@@ -21,16 +21,16 @@ rm -rf "$STAGE_DIR"
 # Control files
 mkdir -p "$STAGE_DIR/DEBIAN"
 MAINTAINER=$(grep '^Maintainer:' "$SCRIPT_DIR/control" | head -1)
-sed -n '/^Package:/,$ p' "$SCRIPT_DIR/control" \
+sed -n '/^Package: rustyfoot-hmi$/,/^$/p' "$SCRIPT_DIR/control" \
   | grep -v 'misc:Depends' \
   | sed '/^Depends:/{N;s/Depends:\s*\n\s*/Depends: /}' \
   > "$STAGE_DIR/DEBIAN/control"
 # Add required fields
 sed -i "/^Architecture:/a Version: $VERSION" "$STAGE_DIR/DEBIAN/control"
 grep -q '^Maintainer:' "$STAGE_DIR/DEBIAN/control" || sed -i "/^Version:/a $MAINTAINER" "$STAGE_DIR/DEBIAN/control"
-cp "$SCRIPT_DIR/postinst" "$STAGE_DIR/DEBIAN/postinst"
-cp "$SCRIPT_DIR/prerm" "$STAGE_DIR/DEBIAN/prerm"
-cp "$SCRIPT_DIR/postrm" "$STAGE_DIR/DEBIAN/postrm"
+cp "$SCRIPT_DIR/rustyfoot-hmi.postinst" "$STAGE_DIR/DEBIAN/postinst"
+cp "$SCRIPT_DIR/rustyfoot-hmi.prerm" "$STAGE_DIR/DEBIAN/prerm"
+cp "$SCRIPT_DIR/rustyfoot-hmi.postrm" "$STAGE_DIR/DEBIAN/postrm"
 chmod 755 "$STAGE_DIR/DEBIAN/postinst" "$STAGE_DIR/DEBIAN/prerm" "$STAGE_DIR/DEBIAN/postrm"
 
 # Application bundle

@@ -320,42 +320,71 @@ class _PiEdeUIState extends State<PiEdeUI> {
     });
   }
 
+  Widget _powerButton(IconData icon, String label, Color color, VoidCallback onPressed) {
+    return Expanded(
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white24),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 40, color: color),
+              const SizedBox(height: 6),
+              Text(label, style: TextStyle(color: color)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onPowerOff(BuildContext context) {
     showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Power'),
-          content: const Text('Shut down or restart the device?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Power', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    _powerButton(Icons.close, 'Cancel', Colors.white70, () {
+                      Navigator.of(dialogContext).pop();
+                    }),
+                    const SizedBox(width: 12),
+                    _powerButton(Icons.terminal, 'Shell', Colors.orange, () {
+                      Navigator.of(dialogContext).pop();
+                      _exitToShell();
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _powerButton(Icons.restart_alt, 'Restart', Colors.orange, () {
+                      Navigator.of(dialogContext).pop();
+                      _runPowerCommand('reboot');
+                    }),
+                    const SizedBox(width: 12),
+                    _powerButton(Icons.power_settings_new, 'Shutdown', Colors.red, () {
+                      Navigator.of(dialogContext).pop();
+                      _runPowerCommand('shutdown');
+                    }),
+                  ],
+                ),
+              ],
             ),
-            TextButton(
-              child: const Text('Exit to Shell'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _exitToShell();
-              },
-            ),
-            TextButton(
-              child: const Text('Restart'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _runPowerCommand('reboot');
-              },
-            ),
-            TextButton(
-              child: const Text('Shutdown'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _runPowerCommand('shutdown');
-              },
-            ),
-          ],
+          ),
         );
       },
     );
