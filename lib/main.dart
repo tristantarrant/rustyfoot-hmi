@@ -506,15 +506,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onBanks());
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.camera),
-              title: const Text('Snapshots'),
-              selected: _selectedWidget == 4,
-              onTap: () {
-                _closeDrawerIfOpen();
-                WidgetsBinding.instance.addPostFrameCallback((_) => _onSnapshots());
-              },
-            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.tune),
@@ -525,15 +516,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onTuner());
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.volume_off),
-              title: const Text('Bypass'),
-              selected: _selectedWidget == 6,
-              onTap: () {
-                _closeDrawerIfOpen();
-                WidgetsBinding.instance.addPostFrameCallback((_) => _onBypass());
-              },
-            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.piano),
@@ -542,15 +524,6 @@ class _PiEdeUIState extends State<PiEdeUI> {
               onTap: () {
                 _closeDrawerIfOpen();
                 WidgetsBinding.instance.addPostFrameCallback((_) => _onMIDI());
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Profiles'),
-              selected: _selectedWidget == 8,
-              onTap: () {
-                _closeDrawerIfOpen();
-                WidgetsBinding.instance.addPostFrameCallback((_) => _onProfiles());
               },
             ),
             ListTile(
